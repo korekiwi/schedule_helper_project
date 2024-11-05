@@ -1,10 +1,12 @@
+import datetime
+
 from sqlalchemy import create_engine, select, delete, update, func, and_
 from sqlalchemy.orm import Session
 from datetime import time
 
 from databases.database_settings import get_mysql_url
-from databases.models import metadata, Base, Homework, Schedule, DayOfWeek
-from databases.schemas import HomeworkPostDTO, HomeworkGetDTO
+from databases.models import metadata, Base, User, Homework, Schedule, DayOfWeek
+from databases.schemas import (HomeworkPostDTO, HomeworkGetDTO, SchedulePostDTO, ScheduleGetDTO,)
 
 engine = create_engine(
     url=get_mysql_url(),
@@ -14,8 +16,25 @@ engine = create_engine(
 Base.metadata.create_all(bind=engine)
 
 
-def create_homework(user_id, subject, text, date):
+"""Homework"""
+
+
+def create_user(tg_id):
     with Session(autoflush=False, bind=engine) as db:
+        new_user = User(tg_id=tg_id,
+                        hw_notifications=False,
+                        schedule_notifications=False)
+        db.add(new_user)
+        db.commit()
+
+
+def create_homework(tg_id, subject, text, date):
+    with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
+        if user_id is None:
+            create_user(tg_id)
+            db.commit()
+            user_id = get_user_id_by_tg_id(tg_id)
         new_homework = Homework(user_id=user_id,
                                 subject=subject,
                                 text=text,
@@ -24,29 +43,43 @@ def create_homework(user_id, subject, text, date):
         db.commit()
 
 
-def get_all_subjects(user_id):
+def get_all_subjects(tg_id):
     with Session(autoflush=False, bind=engine) as db:
         q = (
             select(Homework.subject)
-            .filter(Homework.user_id == user_id)
+            .join(User, Homework.user_id == User.id)
+            .filter(User.tg_id == tg_id)
         )
         subjects = db.execute(q).scalars().unique().all()
-        return(subjects)
+        return subjects
 
 
-def get_homework_by_subject(user_id, subject):
+def get_homework_by_subject(tg_id, subject):
     with Session(autoflush=False, bind=engine) as db:
         q = (
             select(Homework)
-            .filter(and_(Homework.user_id == user_id, Homework.subject == subject))
+            .join(User, Homework.user_id == User.id)
+            .filter(and_(User.tg_id == tg_id, Homework.subject == subject))
         )
         all_homework = db.execute(q).scalars().all()
         res = [HomeworkGetDTO.model_validate(homework, from_attributes=True) for homework in all_homework]
-        return(res)
+        return res
 
 
-def delete_all_finished_tasks(user_id):
+def get_all_homework(date):
     with Session(autoflush=False, bind=engine) as db:
+        q = (
+            select(Homework)
+            .filter(Homework.date == date)
+        )
+        all_homework = db.execute(q).scalars().all()
+        res = [HomeworkGetDTO.model_validate(homework, from_attributes=True) for homework in all_homework]
+        return res
+
+
+def delete_all_finished_tasks(tg_id):
+    with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
         q = (
             delete(Homework)
             .filter(and_(Homework.user_id == user_id, Homework.finished == 1))
@@ -55,8 +88,9 @@ def delete_all_finished_tasks(user_id):
         db.commit()
 
 
-def delete_all_finished_tasks_by_subject(user_id, subject):
+def delete_all_finished_tasks_by_subject(tg_id, subject):
     with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
         q = (
             delete(Homework)
             .filter(and_(Homework.user_id == user_id, Homework.finished == 1, Homework.subject == subject))
@@ -65,18 +99,41 @@ def delete_all_finished_tasks_by_subject(user_id, subject):
         db.commit()
 
 
-def check_task_id(user_id, task_id):
+def check_task_id(tg_id, task_id):
     with Session(autoflush=False, bind=engine) as db:
         q = (
-            select(Homework.user_id)
+            select(User.tg_id)
+            .select_from(User)
+            .join(Homework, Homework.user_id == User.id)
             .filter(Homework.id == task_id)
         )
-        got_user_id = db.execute(q).scalars().first()
-        return True if got_user_id == user_id else False
+        got_tg_id = db.execute(q).scalars().first()
+        return True if got_tg_id == tg_id else False
 
 
-def delete_task_by_id(user_id, task_id):
+def get_user_id_by_tg_id(tg_id):
     with Session(autoflush=False, bind=engine) as db:
+        q = (
+            select(User.id)
+            .filter(User.tg_id == tg_id)
+        )
+        user_id = db.execute(q).scalars().first()
+        return user_id
+
+
+def get_tg_id_by_user_id(user_id):
+    with Session(autoflush=False, bind=engine) as db:
+        q = (
+            select(User.tg_id)
+            .filter(User.id == user_id)
+        )
+        tg_id = db.execute(q).scalars().first()
+        return tg_id
+
+
+def delete_task_by_id(tg_id, task_id):
+    with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
         q = (
             delete(Homework)
             .filter(and_(Homework.id == task_id, Homework.user_id == user_id))
@@ -85,8 +142,9 @@ def delete_task_by_id(user_id, task_id):
         db.commit()
 
 
-def hard_delete(user_id):
+def hard_delete(tg_id):
     with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
         q = (
             delete(Homework)
             .filter(Homework.user_id == user_id)
@@ -95,8 +153,9 @@ def hard_delete(user_id):
         db.commit()
 
 
-def change_status(user_id, task_id, new_status):
+def change_status(tg_id, task_id, new_status):
     with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
         q = (
             update(Homework)
             .filter(and_(Homework.user_id == user_id, Homework.id == task_id))
@@ -106,8 +165,150 @@ def change_status(user_id, task_id, new_status):
         db.commit()
 
 
-if __name__ == '__main__':
-    #print(get_all_subjects(1167336636))
-    # delete_all_finished_tasks(1167336636)
-    # print(check_task_id(1167336636, 12))
-    change_status(533078883, 5, 1)
+"""Schedule"""
+
+
+def create_schedule_task(tg_id, days, time_start, time_end, text):
+    with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
+        if user_id is None:
+            create_user(tg_id)
+            db.commit()
+            user_id = get_user_id_by_tg_id(tg_id)
+        new_tasks = []
+        for day in days:
+            new_task = Schedule(user_id=user_id,
+                                day=day,
+                                time_start=time_start,
+                                time_end=time_end,
+                                text=text)
+            new_tasks.append(new_task)
+    db.add_all(new_tasks)
+    db.commit()
+
+
+def get_schedule_tasks(tg_id, day):
+    with Session(autoflush=False, bind=engine) as db:
+        q = (
+            select(Schedule)
+            .join(User, Schedule.user_id == User.id)
+            .filter(and_(Schedule.day == day, User.tg_id == tg_id))
+            .order_by(Schedule.time_start)
+        )
+        all_tasks = db.execute(q).scalars().all()
+        res = [ScheduleGetDTO.model_validate(task, from_attributes=True) for task in all_tasks]
+        return res
+
+
+def delete_schedule_tasks_by_day(tg_id, day):
+    with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
+        q = (
+            delete(Schedule)
+            .filter(and_(Schedule.day == day, Schedule.user_id == user_id))
+        )
+        db.execute(q)
+        db.commit()
+
+
+def check_schedule_task_id(tg_id, task_id):
+    with Session(autoflush=False, bind=engine) as db:
+        q = (
+            select(User.tg_id)
+            .select_from(User)
+            .join(Schedule, Schedule.user_id == User.id)
+            .filter(Schedule.id == task_id)
+        )
+        got_tg_id = db.execute(q).scalars().first()
+        return True if got_tg_id == tg_id else False
+
+
+def delete_schedule_task_by_id(tg_id, task_id):
+    with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
+        q = (
+            delete(Schedule)
+            .filter(and_(Schedule.id == task_id, Schedule.user_id == user_id))
+        )
+        db.execute(q)
+        db.commit()
+
+
+def get_schedule_task_text_by_id(task_id):
+    with Session(autoflush=False, bind=engine) as db:
+        q = (
+            select(Schedule.text)
+            .filter(Schedule.id == task_id)
+        )
+        task_text = db.execute(q).scalars().first()
+        return task_text
+
+
+def delete_schedule_tasks_by_id(tg_id, task_id):
+    with Session(autoflush=False, bind=engine) as db:
+        task_text = get_schedule_task_text_by_id(task_id)
+        user_id = get_user_id_by_tg_id(tg_id)
+        q = (
+            delete(Schedule)
+            .filter(and_(Schedule.text == task_text, Schedule.user_id == user_id))
+        )
+        db.execute(q)
+        db.commit()
+
+
+def schedule_hard_delete(tg_id):
+    with Session(autoflush=False, bind=engine) as db:
+        user_id = get_user_id_by_tg_id(tg_id)
+        q = (
+            delete(Schedule)
+            .filter(Schedule.user_id == user_id)
+        )
+        db.execute(q)
+        db.commit()
+
+
+"""Уведомления"""
+
+
+def get_hw_notifications(tg_id):
+    with Session(autoflush=False, bind=engine) as db:
+        q = (
+            select(User.hw_notifications)
+            .filter(User.tg_id == tg_id)
+        )
+        res = db.execute(q).scalars().first()
+        return res
+
+
+def get_sched_notifications(tg_id):
+    with Session(autoflush=False, bind=engine) as db:
+        q = (
+            select(User.schedule_notifications)
+            .filter(User.tg_id == tg_id)
+        )
+        res = db.execute(q).scalars().first()
+        return res
+
+
+def change_hw_notifications(tg_id, change: int):
+    with Session(autoflush=False, bind=engine) as db:
+        q = (
+            update(User)
+            .where(User.tg_id == tg_id)
+            .values(hw_notifications=change)
+        )
+        db.execute(q)
+        db.commit()
+
+
+def change_sched_notifications(tg_id, change: int):
+    with Session(autoflush=False, bind=engine) as db:
+        q = (
+            update(User)
+            .where(User.tg_id == tg_id)
+            .values(schedule_notifications=change)
+        )
+        db.execute(q)
+        db.commit()
+
+

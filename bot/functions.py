@@ -1,7 +1,8 @@
 import re
 import datetime
 
-from databases.schemas import HomeworkGetDTO
+from databases.schemas import HomeworkGetDTO, ScheduleGetDTO
+from databases.models import DayOfWeek
 
 
 def date_match(date: str) -> bool:
@@ -31,3 +32,64 @@ def send_all_homework(homework_list: list[HomeworkGetDTO]) -> str:
                     f'\n')
     return message
 
+
+def time_match(time: str) -> bool:
+    reg = '^([0-9]|1[0-9]|2[0-3])(:)([0-5][0-9])(-)([0-9]|1[0-9]|2[0-3])(:)([0-5][0-9])'
+    return bool(re.fullmatch(reg, time))
+
+
+def split_time(time: str) -> dict:
+    time_split = time.split('-')
+    first_part = time_split[0].split(':')
+    second_part = time_split[1].split(':')
+    for i in range(len(first_part)):
+        first_part[i] = int(first_part[i])
+        second_part[i] = int(second_part[i])
+    return {'first_part': first_part, 'second_part': second_part}
+
+
+def time_check(time: str) -> bool:
+    time_dict = split_time(time)
+    if (time_dict.get('first_part')[0] > time_dict.get('second_part')[0] or
+        (time_dict.get('first_part')[0] == time_dict.get('second_part')[0] and
+         time_dict.get('first_part')[1]) > time_dict.get('second_part')[1]):
+        return False
+    return True
+
+
+def turn_to_time_type(time: str) -> list[datetime.time]:
+    time_dict = split_time(time)
+    start = datetime.time(time_dict.get('first_part')[0], time_dict.get('first_part')[1], 0)
+    end = datetime.time(time_dict.get('second_part')[0], time_dict.get('second_part')[1], 0)
+    return [start, end]
+
+
+def send_days_of_week(days_list: dict) -> str:
+    days = ''
+    for i in range(len(days_list)):
+        days += str(days_list[i].value.lower())
+        if i < len(days_list) - 1:
+            days += ', '
+    return days
+
+
+def get_weekday():
+    int_day = datetime.datetime.today().weekday()
+    days_dict = {1: DayOfWeek.Monday,
+                 2: DayOfWeek.Tuesday,
+                 3: DayOfWeek.Wednesday,
+                 4: DayOfWeek.Thursday,
+                 5: DayOfWeek.Friday,
+                 6: DayOfWeek.Saturday,
+                 0: DayOfWeek.Sunday}
+    return days_dict.get(int_day)
+
+
+def send_all_schedule(tasks_list: list[ScheduleGetDTO], day: DayOfWeek) -> str:
+    message_text = f'{day.value}. Задач: {len(tasks_list)}'
+    for i in range(len(tasks_list)):
+        message_text += '\n\n' + f'{i + 1}\n'
+        message_text += f'{str(tasks_list[i].time_start)[:5]}-{str(tasks_list[i].time_end)[:5]}\n'
+        message_text += f'ID: {tasks_list[i].id}\n'
+        message_text += tasks_list[i].text
+    return message_text

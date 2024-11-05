@@ -1,5 +1,7 @@
 from pydantic import BaseModel
-from datetime import date
+from datetime import date, time
+
+from databases.models import DayOfWeek
 
 
 class HomeworkPostDTO(BaseModel):
@@ -11,4 +13,16 @@ class HomeworkPostDTO(BaseModel):
 
 
 class HomeworkGetDTO(HomeworkPostDTO):
+    id: int
+
+
+class SchedulePostDTO(BaseModel):
+    user_id: int
+    day: DayOfWeek
+    time_start: time
+    time_end: time
+    text: str
+
+
+class ScheduleGetDTO(SchedulePostDTO):
     id: int
