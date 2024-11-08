@@ -117,9 +117,6 @@ def get_tomorrow():
     return datetime.date(tomorrow_year, tomorrow_month, tomorrow_day)
 
 
-print(get_tomorrow())
-
-
 def send_all_schedule(tasks_list: list[ScheduleGetDTO], day: DayOfWeek) -> str:
     message_text = f'{day.value}. Задач: {len(tasks_list)}'
     for i in range(len(tasks_list)):
