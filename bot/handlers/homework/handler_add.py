@@ -60,4 +60,3 @@ async def fill_date(message: Message, state: FSMContext):
                          f"Предмет: {data.get('subject')}\n"
                          f"Выполнить до: {data.get('date')}\n"
                          f"Задание: {data.get('text')}")
-    print('кто-то добавился')
