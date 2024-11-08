@@ -1,16 +1,14 @@
 import datetime
 
-from sqlalchemy import create_engine, select, delete, update, func, and_
+from sqlalchemy import create_engine, select, delete, update, and_
 from sqlalchemy.orm import Session
-from datetime import time
 
 from databases.database_settings import get_mysql_url
-from databases.models import metadata, Base, User, Homework, Schedule, DayOfWeek
-from databases.schemas import (HomeworkPostDTO, HomeworkGetDTO, SchedulePostDTO, ScheduleGetDTO,)
+from databases.models import Base, User, Homework, Schedule, DayOfWeek
+from databases.schemas import (HomeworkGetDTO, ScheduleGetDTO)
 
 engine = create_engine(
-    url=get_mysql_url(),
-    # echo=True
+    url=get_mysql_url()
 )
 
 Base.metadata.create_all(bind=engine)
@@ -66,11 +64,11 @@ def get_homework_by_subject(tg_id, subject):
         return res
 
 
-def get_all_homework(date):
+def get_all_unfinished_homework():
     with Session(autoflush=False, bind=engine) as db:
         q = (
             select(Homework)
-            .filter(Homework.date == date)
+            .filter(Homework.finished == 0)
         )
         all_homework = db.execute(q).scalars().all()
         res = [HomeworkGetDTO.model_validate(homework, from_attributes=True) for homework in all_homework]
@@ -194,6 +192,17 @@ def get_schedule_tasks(tg_id, day):
             .join(User, Schedule.user_id == User.id)
             .filter(and_(Schedule.day == day, User.tg_id == tg_id))
             .order_by(Schedule.time_start)
+        )
+        all_tasks = db.execute(q).scalars().all()
+        res = [ScheduleGetDTO.model_validate(task, from_attributes=True) for task in all_tasks]
+        return res
+
+
+def get_schedule_tasks_by_time_start_and_day(day, time_start):
+    with Session(autoflush=False, bind=engine) as db:
+        q = (
+            select(Schedule)
+            .filter(and_(Schedule.day == day, Schedule.time_start == time_start))
         )
         all_tasks = db.execute(q).scalars().all()
         res = [ScheduleGetDTO.model_validate(task, from_attributes=True) for task in all_tasks]

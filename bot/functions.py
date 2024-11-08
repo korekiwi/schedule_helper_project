@@ -1,5 +1,6 @@
 import re
 import datetime
+import calendar
 
 from databases.schemas import HomeworkGetDTO, ScheduleGetDTO
 from databases.models import DayOfWeek
@@ -75,14 +76,48 @@ def send_days_of_week(days_list: dict) -> str:
 
 def get_weekday():
     int_day = datetime.datetime.today().weekday()
-    days_dict = {1: DayOfWeek.Monday,
-                 2: DayOfWeek.Tuesday,
-                 3: DayOfWeek.Wednesday,
-                 4: DayOfWeek.Thursday,
-                 5: DayOfWeek.Friday,
-                 6: DayOfWeek.Saturday,
-                 0: DayOfWeek.Sunday}
+    days_dict = {0: DayOfWeek.Monday,
+                 1: DayOfWeek.Tuesday,
+                 2: DayOfWeek.Wednesday,
+                 3: DayOfWeek.Thursday,
+                 4: DayOfWeek.Friday,
+                 5: DayOfWeek.Saturday,
+                 6: DayOfWeek.Sunday}
     return days_dict.get(int_day)
+
+
+def get_time():
+    datetime_time = datetime.datetime.today().time()
+    hour = int(str(datetime_time)[:2])
+    minutes = int(str(datetime_time)[3:5])
+    new_datetime_time = datetime.time(hour, minutes, 0)
+    return new_datetime_time
+
+
+def get_tomorrow():
+    year = datetime.datetime.today().year
+    month = datetime.datetime.today().month
+    day = datetime.datetime.today().day
+    if ((day == 31 and month in (3, 5, 7, 8, 10, 12))
+            or (day == 30 and month in (1, 4, 6, 9, 11))
+            or (day == 28 and month == 2 and not calendar.isleap(year))
+            or (day == 29 and month == 2)):
+        tomorrow_day = 1
+    else:
+        tomorrow_day = day + 1
+    if tomorrow_day == 1 and month == 12:
+        tomorrow_year = year + 1
+        tomorrow_month = 1
+    elif tomorrow_day == 1:
+        tomorrow_year = year
+        tomorrow_month = month + 1
+    else:
+        tomorrow_year = year
+        tomorrow_month = month
+    return datetime.date(tomorrow_year, tomorrow_month, tomorrow_day)
+
+
+print(get_tomorrow())
 
 
 def send_all_schedule(tasks_list: list[ScheduleGetDTO], day: DayOfWeek) -> str:
@@ -93,3 +128,15 @@ def send_all_schedule(tasks_list: list[ScheduleGetDTO], day: DayOfWeek) -> str:
         message_text += f'ID: {tasks_list[i].id}\n'
         message_text += tasks_list[i].text
     return message_text
+
+
+def notify_about_homework(homework: HomeworkGetDTO) -> str:
+    text_message = (f'До {homework.date} необходимо выполнить задание по предмету {homework.subject}:\n'
+               f'{homework.text}')
+    return text_message
+
+
+def notify_about_task(task: ScheduleGetDTO) -> str:
+    text_message = f'{str(task.time_start)[:5]}-{str(task.time_end)[:5]}: {task.text}'
+    return text_message
+

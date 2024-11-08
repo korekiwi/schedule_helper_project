@@ -20,8 +20,9 @@ from bot.handlers.schedule.handler_show_task import schedule_router_show_task
 from bot.handlers.schedule.handler_delete_task import schedule_router_delete_task
 
 # from bot.notifications_functions import send_message_time, send_message_cron, send_message_interval
+from bot.handlers.handler_notifications import send_message_homework, send_message_schedule
 
-# scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
+scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
 
 
 async def main():
@@ -29,7 +30,7 @@ async def main():
     dp = Dispatcher()
 
     # scheduler.add_job(send_message_time, trigger='date',
-    #                   run_date=datetime.datetime.now() + datetime.timedelta(seconds=10),
+    #                   run_date=datetime.datetime.now() + datetime.timedelta(seconds=3),
     #                   kwargs={'bot': bot})
     #
     # scheduler.add_job(send_message_cron, trigger='cron',
@@ -37,11 +38,17 @@ async def main():
     #                   minute=datetime.datetime.now().minute + 1,
     #                   start_date=datetime.datetime.now(),
     #                   kwargs={'bot': bot})
-    #
-    # scheduler.add_job(send_message_interval, trigger='interval',
-    #                   seconds=60, kwargs={'bot': bot})
-    #
-    # scheduler.start()
+
+    scheduler.add_job(send_message_homework, trigger='cron',
+                      hour=15,
+                      minute=00,
+                      start_date=datetime.datetime.now(),
+                      kwargs={'bot': bot})
+
+    scheduler.add_job(send_message_schedule, trigger='interval',
+                      seconds=60, kwargs={'bot': bot})
+
+    scheduler.start()
 
     dp.include_routers(router, notifications_router)
     dp.include_routers(homework_router_add,
