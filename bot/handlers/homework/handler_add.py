@@ -11,7 +11,6 @@ homework_router_add = Router()
 
 
 class HomeworkWaiting(StatesGroup):
-    user_id = State()
     subject = State()
     date = State()
     text = State()
@@ -20,8 +19,6 @@ class HomeworkWaiting(StatesGroup):
 @homework_router_add.message(Command('add_homework'))
 async def add_homework(message: Message, state: FSMContext):
     await state.clear()
-    await state.set_state(HomeworkWaiting.user_id)
-    await state.update_data(user_id=message.from_user.id)
     await state.set_state(HomeworkWaiting.subject)
     await message.answer('Напишите название предмета.')
 
@@ -54,7 +51,7 @@ async def fill_date(message: Message, state: FSMContext):
     await state.update_data(text=message.text)
     data = await state.get_data()
     await state.clear()
-    create_homework(data.get('user_id'), data.get('subject'),
+    create_homework(message.from_user.id, data.get('subject'),
                     data.get('text'), turn_to_date_type(data.get('date')))
     await message.answer(f"Задание добавлено! \n\n"
                          f"Предмет: {data.get('subject')}\n"
