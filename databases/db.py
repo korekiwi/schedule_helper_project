@@ -1,10 +1,8 @@
-import datetime
-
 from sqlalchemy import create_engine, select, delete, update, and_
 from sqlalchemy.orm import Session
 
 from databases.database_settings import get_mysql_url
-from databases.models import Base, User, Homework, Schedule, DayOfWeek
+from databases.models import Base, User, Homework, Schedule
 from databases.schemas import (HomeworkGetDTO, ScheduleGetDTO)
 
 engine = create_engine(
@@ -68,7 +66,8 @@ def get_all_unfinished_homework():
     with Session(autoflush=False, bind=engine) as db:
         q = (
             select(Homework)
-            .filter(Homework.finished == 0)
+            .join(User, Homework.user_id == User.id)
+            .filter(and_(Homework.finished == 0, User.hw_notifications == 1))
         )
         all_homework = db.execute(q).scalars().all()
         res = [HomeworkGetDTO.model_validate(homework, from_attributes=True) for homework in all_homework]
@@ -202,7 +201,8 @@ def get_schedule_tasks_by_time_start_and_day(day, time_start):
     with Session(autoflush=False, bind=engine) as db:
         q = (
             select(Schedule)
-            .filter(and_(Schedule.day == day, Schedule.time_start == time_start))
+            .join(User, Schedule.user_id == User.id)
+            .filter(and_(Schedule.day == day, Schedule.time_start == time_start, User.schedule_notifications == 1))
         )
         all_tasks = db.execute(q).scalars().all()
         res = [ScheduleGetDTO.model_validate(task, from_attributes=True) for task in all_tasks]

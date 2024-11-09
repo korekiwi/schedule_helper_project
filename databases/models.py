@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import (MetaData, Table, Column, Integer,
+from sqlalchemy import (MetaData, Column, Integer,
                         String, Text, Time, Enum, Date, Boolean, ForeignKey)
 from enum import Enum as En
 

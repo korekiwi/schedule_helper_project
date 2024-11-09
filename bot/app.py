@@ -19,7 +19,6 @@ from bot.handlers.schedule.handler_add_task import schedule_router_add_task
 from bot.handlers.schedule.handler_show_task import schedule_router_show_task
 from bot.handlers.schedule.handler_delete_task import schedule_router_delete_task
 
-# from bot.notifications_functions import send_message_time, send_message_cron, send_message_interval
 from bot.handlers.handler_notifications import send_message_homework, send_message_schedule
 
 scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
@@ -29,18 +28,8 @@ async def main():
     bot = Bot(token=API_TOKEN)
     dp = Dispatcher()
 
-    # scheduler.add_job(send_message_time, trigger='date',
-    #                   run_date=datetime.datetime.now() + datetime.timedelta(seconds=3),
-    #                   kwargs={'bot': bot})
-    #
-    # scheduler.add_job(send_message_cron, trigger='cron',
-    #                   hour=datetime.datetime.now().hour,
-    #                   minute=datetime.datetime.now().minute + 1,
-    #                   start_date=datetime.datetime.now(),
-    #                   kwargs={'bot': bot})
-
     scheduler.add_job(send_message_homework, trigger='cron',
-                      hour=15,
+                      hour=14,
                       minute=00,
                       start_date=datetime.datetime.now(),
                       kwargs={'bot': bot})
