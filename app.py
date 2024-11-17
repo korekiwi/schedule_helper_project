@@ -20,12 +20,11 @@ from bot.handlers.schedule.handler_delete_task import schedule_router_delete_tas
 
 from bot.handlers.handler_notifications import send_message_homework, send_message_schedule
 
-scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
-
 
 async def main():
     bot = Bot(token=API_TOKEN)
     dp = Dispatcher()
+    scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
 
     scheduler.add_job(send_message_homework, trigger='cron',
                       hour=14,
